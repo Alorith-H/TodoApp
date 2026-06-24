@@ -4,6 +4,7 @@ import '../database/database_helper.dart';
 import '../models/task.dart';
 import '../models/category.dart';
 import '../models/settings_model.dart';
+import '../services/update_service.dart';
 import 'settings_screen.dart';
 import 'task_form_screen.dart';
 
@@ -34,11 +35,26 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isLoading = true;
+  bool _updateAvailable = false;
+  String _newVersion = '';
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _checkForUpdatesOnStartup();
+  }
+
+  /// 启动时后台检测更新（不阻塞 UI）
+  Future<void> _checkForUpdatesOnStartup() async {
+    final info = await UpdateService.checkForUpdate();
+    if (!mounted) return;
+    if (info.hasUpdate) {
+      setState(() {
+        _updateAvailable = true;
+        _newVersion = info.latestVersion;
+      });
+    }
   }
 
   @override
@@ -348,6 +364,29 @@ class _HomeScreenState extends State<HomeScreen> {
     return AppBar(
       title: const Text('TODO'),
       actions: [
+        if (_updateAvailable)
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.system_update_outlined),
+                tooltip: '发现新版本 v$_newVersion',
+                onPressed: () => _showUpdateBannerInAppBar(),
+              ),
+              Positioned(
+                right: 6,
+                top: 6,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
         IconButton(
           icon: const Icon(Icons.settings_outlined),
           onPressed: _openSettings,
@@ -358,6 +397,36 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
       scrolledUnderElevation: 0,
+    );
+  }
+
+  void _showUpdateBannerInAppBar() {
+    // 轻点更新按钮时提示
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.system_update, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('发现新版本'),
+          ],
+        ),
+        content: Text('最新版本 v$_newVersion 已发布，前往设置页面安装更新？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('忽略'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _openSettings();
+            },
+            child: const Text('去更新'),
+          ),
+        ],
+      ),
     );
   }
 

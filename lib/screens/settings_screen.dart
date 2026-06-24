@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../models/settings_model.dart';
+import '../services/update_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final AppSettings settings;
@@ -20,12 +21,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late AppSettings _settings;
   Map<String, int>? _stats;
   bool _statsLoading = true;
+  bool _updateChecking = false;
+  String? _updateStatus;
 
   @override
   void initState() {
     super.initState();
     _settings = widget.settings;
     _loadStats();
+    _loadUpdateStatus();
   }
 
   Future<void> _loadStats() async {
@@ -42,11 +46,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _loadUpdateStatus() async {
+    final hasUpdate = await UpdateService.hasCachedUpdate();
+    final version = await UpdateService.getCachedLatestVersion();
+    if (!mounted) return;
+    setState(() {
+      if (hasUpdate) {
+        _updateStatus = '发现新版本 v$version';
+      }
+    });
+  }
+
   void _updateSettings(AppSettings newSettings) {
     setState(() {
       _settings = newSettings;
     });
     widget.onSettingsChanged(newSettings);
+  }
+
+  Future<void> _checkUpdate() async {
+    setState(() {
+      _updateChecking = true;
+      _updateStatus = null;
+    });
+
+    final info = await UpdateService.checkForUpdate();
+
+    if (!mounted) return;
+    setState(() {
+      _updateChecking = false;
+    });
+
+    if (info.hasUpdate) {
+      setState(() {
+        _updateStatus = '发现新版本 v${info.latestVersion}';
+      });
+
+      _showUpdateDialog(info);
+    } else {
+      setState(() {
+        _updateStatus = '已是最新版';
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ 已是最新版 v1.0.0'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _showUpdateDialog(UpdateInfo info) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.system_update, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('发现新版本'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('当前版本：v$currentVersion',
+                style: TextStyle(color: Colors.grey[600])),
+            Text('最新版本：v${info.latestVersion}',
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            if (info.releaseNotes.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('更新内容：',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text(
+                info.releaseNotes.length > 300
+                    ? '${info.releaseNotes.substring(0, 300)}...'
+                    : info.releaseNotes,
+                style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('稍后'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.open_in_browser, size: 18),
+            label: const Text('去下载'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              UpdateService.openDownloadPage();
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -296,6 +395,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           ],
                         ),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // ── About section ──
+          _buildSectionHeader('关于', Icons.info_outline),
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            child: Column(
+              children: [
+                // 版本号
+                ListTile(
+                  leading: const Icon(Icons.tag),
+                  title: const Text('版本号'),
+                  subtitle: Text('v$currentVersion'),
+                ),
+                const Divider(height: 1, indent: 56, endIndent: 16),
+
+                // 检查更新
+                ListTile(
+                  leading: Icon(
+                    Icons.system_update,
+                    color: _updateStatus?.contains('新版本') == true
+                        ? Colors.blue
+                        : null,
+                  ),
+                  title: const Text('检查更新'),
+                  subtitle: Text(
+                    _updateChecking
+                        ? '正在检查...'
+                        : (_updateStatus ?? '点击检查最新版本'),
+                    style: TextStyle(
+                      color: _updateStatus == '已是最新版'
+                          ? Colors.green
+                          : (_updateStatus?.contains('新版本') == true
+                              ? Colors.blue
+                              : null),
+                    ),
+                  ),
+                  trailing: _updateChecking
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : (_updateStatus?.contains('新版本') == true
+                          ? const Icon(Icons.circle, color: Colors.red, size: 10)
+                          : const Icon(Icons.chevron_right)),
+                  onTap: _updateChecking ? null : _checkUpdate,
+                ),
+              ],
             ),
           ),
 

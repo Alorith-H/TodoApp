@@ -1,13 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import '../database/database_helper.dart';
 import '../models/task.dart';
 import '../models/category.dart';
 import '../models/settings_model.dart';
-import '../services/update_service.dart';
 import 'settings_screen.dart';
 import 'task_form_screen.dart';
 
@@ -38,45 +34,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isLoading = true;
-  bool _updateAvailable = false;
-  String _newVersion = '';
-  String _currentVersion = '';
-  bool _isDownloading = false;
-  double _downloadProgress = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadCurrentVersion();
     _loadData();
-  }
-
-  /// 读取当前版本号（从 PackageInfo）
-  Future<void> _loadCurrentVersion() async {
-    try {
-      final info = await PackageInfo.fromPlatform();
-      final version = '${info.version}';
-      if (!mounted) return;
-      setState(() => _currentVersion = version);
-      // 版本号就绪后去检查更新
-      _checkForUpdatesOnStartup(version);
-    } catch (_) {
-      // fallback
-      _checkForUpdatesOnStartup('1.0.0');
-    }
-  }
-
-  /// 启动时后台检测更新（不阻塞 UI）
-  Future<void> _checkForUpdatesOnStartup(String currentVersion) async {
-    final info = await UpdateService.checkForUpdate(
-        currentVersion: currentVersion);
-    if (!mounted) return;
-    if (info.hasUpdate) {
-      setState(() {
-        _updateAvailable = true;
-        _newVersion = info.latestVersion;
-      });
-    }
   }
 
   @override
@@ -386,29 +348,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return AppBar(
       title: const Text('TODO'),
       actions: [
-        if (_updateAvailable)
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.system_update_outlined),
-                tooltip: '发现新版本 v$_newVersion',
-                onPressed: () => _showUpdateBannerInAppBar(),
-              ),
-              Positioned(
-                right: 6,
-                top: 6,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
         IconButton(
           icon: const Icon(Icons.settings_outlined),
           onPressed: _openSettings,
@@ -419,120 +358,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
       scrolledUnderElevation: 0,
-    );
-  }
-
-  void _showUpdateBannerInAppBar() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.system_update, color: Colors.blue),
-            SizedBox(width: 8),
-            Text('发现新版本'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('最新版本 v$_newVersion 可更新'),
-            if (_isDownloading) ...[
-              const SizedBox(height: 12),
-              LinearProgressIndicator(value: _downloadProgress > 0 ? _downloadProgress : null),
-              const SizedBox(height: 4),
-              Text(
-                _downloadProgress > 0
-                    ? '${(_downloadProgress * 100).toStringAsFixed(0)}%'
-                    : '正在下载...',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              // 忽略这个版本，永久隐藏小红点
-              UpdateService.ignoreVersion(_newVersion);
-              setState(() {
-                _updateAvailable = false;
-              });
-            },
-            child: const Text('忽略此版本'),
-          ),
-          FilledButton.icon(
-            icon: _isDownloading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.download, size: 18),
-            label: Text(_isDownloading ? '下载中...' : '下载并安装'),
-            onPressed: _isDownloading ? null : () => _downloadAndInstall(ctx),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _downloadAndInstall(dialogContext) async {
-    // 先拿下载 URL
-    String? downloadUrl;
-    try {
-      final info = await UpdateService.checkForUpdate(
-          currentVersion: _currentVersion);
-      downloadUrl = info.downloadUrl;
-    } catch (_) {}
-
-    if (downloadUrl == null || downloadUrl.isEmpty) {
-      // fallback: 用缓存的
-      downloadUrl = await UpdateService.getCachedDownloadUrl();
-    }
-
-    if (downloadUrl == null || downloadUrl.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('获取下载链接失败，请稍后重试')),
-      );
-      return;
-    }
-
-    setState(() => _isDownloading = true);
-
-    // 下载 APK
-    final apkPath = await UpdateService.downloadApk(downloadUrl: downloadUrl);
-
-    setState(() => _isDownloading = false);
-
-    if (apkPath == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('下载失败，请检查网络后重试')),
-      );
-      return;
-    }
-
-    if (!mounted) return;
-    // 关闭弹窗
-    Navigator.of(dialogContext).pop();
-    // 提示用户去文件管理器安装
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('更新包已下载到: $apkPath\n请在文件管理器中打开安装'),
-        duration: const Duration(seconds: 5),
-        action: SnackBarAction(
-          label: '知道了',
-          onPressed: () {},
-        ),
-      ),
     );
   }
 

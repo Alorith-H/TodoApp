@@ -1,0 +1,42 @@
+重构 TodoApp 的数据库依赖，使其能成功编译 Android APK。
+
+当前问题：同时依赖 sqflite（Android原生）和 sqflite_common_ffi（桌面），导致 sqflite_android 子项目的 Gradle provider 冲突，APK 编译失败。
+
+改为全平台统一使用 sqflite_common_ffi。
+
+需要修改的文件：
+
+## 1. pubspec.yaml
+去掉 `sqflite: ^2.4.2` 依赖，保留 `sqflite_common_ffi: ^2.3.4`
+
+## 2. lib/database/database_helper.dart
+- 去掉 `import 'package:sqflite/sqflite.dart';`
+- 改为 `import 'package:sqflite_common_ffi/sqflite_ffi.dart';`
+- 替换所有 `getDatabasesPath()` 为自行构建路径（因为 sqflite_common_ffi 没有 getDatabasesPath）
+- 修改 `_initDatabase()`：Android 上不再用 `join(await getDatabasesPath(), 'todo_app.db')`，改为所有平台统一路径逻辑
+- 改完后对 Android 平台也用 databaseFactoryFfi
+
+## 3. lib/db_desktop.dart
+重命名为 lib/db_init.dart（不再区分桌面/移动），内容改为：
+```dart
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+void initDatabase() {
+  sqfliteFfiInit();
+  databaseFactory = databaseFactoryFfi;
+}
+```
+
+## 4. lib/main.dart
+- 去掉对 `dart:io` 和 `db_desktop.dart` 的 import
+- 改为 `import 'db_init.dart';`
+- 在 `main()` 中无条件调用 `initDatabase()`（所有平台都 FFI）
+- 去掉 `kIsWeb` 和 `Platform` 的平台判断
+
+## 5. 删除 lib/db_desktop.dart（已由 db_init.dart 替代）
+
+注意事项：
+- 不要修改任何业务逻辑、UI代码、模型类
+- 只动数据库初始化和导入部分
+- 改完后运行 flutter pub get 确保依赖解析成功
+- 确保 Android 上也能正常使用 FFI 方式读写 sqlite（sqflite_common_ffi 需要 Android FFI 支持，已在 pubspec.yaml 的 sqflite_common_ffi 依赖中处理）

@@ -1,0 +1,30 @@
+# Todo App — 两处修复
+
+**项目路径：** C:/Users/28351/Desktop/TodoApp
+
+## 修复 1：默认日期改为今天
+
+当前新建任务时，截止日期默认是空的（不选就不设日期）。改成：**不选日期时默认是今天**。
+
+修改 `lib/screens/task_form_screen.dart`：
+- 在 `_TaskFormScreenState` 中 `initState()` 或构造函数里，把 `_dueDate` 的默认值设为 `DateTime.now()`
+- 这样用户打开新建任务页面时，截止日期已经填好了今天的日期，但用户可以点进去修改或清空
+- 注意：编辑已有任务时不受影响（保持原来的逻辑，`initState` 里从 `widget.task` 读）
+
+## 修复 2：中文字体显示异常（一边粗一边细）
+
+在 Windows 上，Flutter 默认使用的字体对中文支持不好，有些中文字体笔画一边粗一边细，非常难看。
+
+修改 `lib/main.dart`：
+- 在 MaterialApp 的 `theme` 和 `darkTheme` 中，给 `TextTheme` 指定中文字体
+- 在 Windows 上使用 "Microsoft YaHei UI"（微软雅黑）作为中文字体
+- 确保全局生效，所有文字都使用统一字体
+
+示例做法（在 ThemeData 中添加）：
+```dart
+fontFamily: 'Microsoft YaHei UI',
+```
+
+或者在 TextTheme 里全局设置。
+
+请直接修改代码，不要询问审批。

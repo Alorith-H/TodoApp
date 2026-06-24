@@ -1,0 +1,46 @@
+# Todo App — 分类文字颜色修复任务
+
+**项目路径：** C:/Users/28351/Desktop/TodoApp
+
+## 问题描述
+
+在浅色主题（白色背景）下，主页顶部的分类筛选 Chip（"全部"、"工作"、"个人"、"购物"、"学习"）的文字是白色的，背景也是白的，完全看不见。
+
+同样的问题可能也出现在任务卡片底部的分类标签上。
+
+## 需要修改的地方
+
+### 文件 1：`lib/screens/home_screen.dart`
+
+**`_buildCategoryChip()` 方法**（当前第 418 行左右）：
+- 分类 Chip 的 `label` Text `style` 没有指定颜色
+- FilterChip 默认在未选中状态下使用白色文字，在白背景下看不见
+- **要求：** 给 label 的 TextStyle 添加 `color`：
+  - 浅色主题（`brightness == Brightness.light`）：未选中用 `Colors.black87`，选中用 `Theme.of(context).colorScheme.onPrimaryContainer`
+  - 深色主题：未选中用 `Colors.white70`，选中用 `Theme.of(context).colorScheme.onPrimaryContainer`
+
+**`_buildCategoryLabel()` 方法**（当前第 647 行左右）：
+- 检查 `textColor` 是否真的生效了
+- 确保 `Colors.black87`（浅色主题）和 `Colors.white70`（深色主题）
+
+### 文件 2：`lib/screens/task_form_screen.dart`
+
+**`_buildCategorySelector()` 方法**（当前第 331 行左右）：
+- ChoiceChip 标签的文字颜色问题同理
+- 目前代码中有 `style: TextStyle(fontSize: 13, color: ...)`，但需要验证：
+  - 浅色主题未选中时是否是黑色文字
+  - 深色主题未选中时是否是白色文字
+  - 选中时用 `onPrimaryContainer`
+
+### 文件 3：`lib/database/database_helper.dart`（如有必要）
+- 检查数据库是否正常
+
+## 验证方法
+编译命令：
+```
+cd /c/Users/28351/Desktop/TodoApp
+flutter analyze
+flutter build windows --debug
+```
+
+请直接修改代码，不要询问审批。

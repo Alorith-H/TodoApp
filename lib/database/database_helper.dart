@@ -45,7 +45,7 @@ class DatabaseHelper {
 
     return await sql.openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -70,7 +70,6 @@ class DatabaseHelper {
       CREATE TABLE categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        icon TEXT NOT NULL,
         color TEXT NOT NULL
       )
     ''');
@@ -88,6 +87,9 @@ class DatabaseHelper {
     if (oldVersion < 2) {
       await db.execute('ALTER TABLE tasks ADD COLUMN is_recurring INTEGER DEFAULT 0');
     }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE categories DROP COLUMN icon');
+    }
   }
 
   // ═══════════════════════════════
@@ -98,7 +100,6 @@ class DatabaseHelper {
     final db = await database;
     return await db.insert('categories', {
       'name': category.name,
-      'icon': category.icon,
       'color': category.color,
     });
   }

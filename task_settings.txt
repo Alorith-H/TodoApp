@@ -1,0 +1,66 @@
+# Todo App — 添加设置界面
+
+**项目路径：** C:/Users/28351/Desktop/TodoApp
+**需要修改的现有文件：** pubspec.yaml、lib/main.dart、lib/screens/home_screen.dart
+**需要新建：** lib/screens/settings_screen.dart、lib/models/settings.dart、lib/database/settings_helper.dart
+
+## 功能要求
+
+### 1. 设置界面入口
+- 主页 AppBar 右上角已有的放大镜搜索按钮旁边，加一个齿轮图标（Icons.settings）
+- 点击跳转到设置界面
+
+### 2. 设置界面内容
+
+#### 2.1 主题模式切换（必须）
+- 三个选项：浅色 / 深色 / 跟随系统
+- 使用 SegmentedButton 或 Radio 列表
+- 当前 `lib/main.dart` 中 `themeMode: ThemeMode.system` 是硬编码的
+- **需要改为从设置读取**，默认值是 ThemeMode.system
+- 切换后立即生效，不需要重启
+
+#### 2.2 主题色切换（必须）
+- 提供 8-10 种主题色选项（蓝色、绿色、紫色、橙色、红色、青色、粉色、靛蓝等）
+- 用圆点色块展示，点击选中
+- 修改 `ColorScheme.fromSeed(seedColor: ...)` 使用的颜色
+- 切换后立即生效
+
+#### 2.3 每日重复任务的自动生成逻辑（请自行完善）
+- 目前数据库里已经有 is_recurring 字段
+- 应用启动时检查今天的日期，如果有"每日重复"任务（is_recurring=1）还没有今天日期的副本，自动生成
+- 这个逻辑可以在 DatabaseHelper 里加一个 `checkAndGenerateRecurringTasks()` 方法
+- 在 main.dart 启动时调用
+
+#### 2.4 其他设置项（请你发挥，完善 2-3 个有用的小功能）
+例如：
+- 默认截止时间（新建任务时默认日期 + 选中一个默认时间点，比如 18:00）
+- 是否显示已完成任务（过滤开关）
+- 任务列表排序方式（按创建时间/按截止日期）
+- 每日提醒开关
+- 数据统计（总任务数、已完成数、完成率）
+
+选你觉得合理的，不要做得太复杂。
+
+### 3. 设置持久化
+- 使用 shared_preferences 包存储设置（不需要数据库这么重的东西）
+- 在 pubspec.yaml 中添加 `shared_preferences: ^2.3.0` 依赖
+- 设置值在应用重启后保持
+
+## 文件清单
+
+### 新建文件
+1. `lib/screens/settings_screen.dart` — 设置界面
+2. `lib/models/settings_model.dart` — 设置数据模型（可选，也可以用 shared_preferences 直接读写）
+
+### 修改文件
+1. `pubspec.yaml` — 添加 shared_preferences 依赖
+2. `lib/main.dart` — 从 shared_preferences 读取主题设置，传递状态到各页面
+3. `lib/screens/home_screen.dart` — AppBar 加设置按钮
+4. `lib/database/database_helper.dart` — 加 `checkAndGenerateRecurringTasks()` 方法
+
+## 设计风格
+- 保持现有的 Material 3 风格
+- 设置页面用 ListTile 布局
+- 和主界面风格统一
+
+请直接实现所有代码，不要询问审批。

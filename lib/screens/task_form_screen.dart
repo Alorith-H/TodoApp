@@ -393,10 +393,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   Future<void> _showAddCategoryDialog() async {
     final nameController = TextEditingController();
 
-    const iconOptions = ['📌', '⭐', '🎯', '🏠', '❤️', '💡', '🎵', '✈️', '📖', '🎨', '🏋️', '💰'];
     const colorOptions = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#039BE5', '#5E35B1', '#D81B60', '#00ACC1'];
 
-    String selectedIcon = '📌';
     String selectedColor = '#039BE5';
 
     Color parseColor(String hex) {
@@ -425,26 +423,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                     isDense: true,
                   ),
                   autofocus: true,
-                ),
-                const SizedBox(height: 16),
-                const Text('选择图标', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: iconOptions.map((icon) => GestureDetector(
-                    onTap: () => setDialogState(() => selectedIcon = icon),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: selectedIcon == icon
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(icon, style: const TextStyle(fontSize: 20)),
-                    ),
-                  )).toList(),
                 ),
                 const SizedBox(height: 16),
                 const Text('选择颜色', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
@@ -492,7 +470,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       try {
         await _db.addCategory(Category(
           name: nameController.text.trim(),
-          icon: selectedIcon,
           color: selectedColor,
         ));
         _loadCategories();

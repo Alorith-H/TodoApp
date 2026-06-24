@@ -178,10 +178,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _showAddCategoryDialog() async {
     final nameController = TextEditingController();
 
-    const iconOptions = ['📌', '⭐', '🎯', '🏠', '❤️', '💡', '🎵', '✈️', '📖', '🎨', '🏋️', '💰'];
     const colorOptions = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#039BE5', '#5E35B1', '#D81B60', '#00ACC1'];
 
-    String selectedIcon = '📌';
     String selectedColor = '#039BE5';
 
     final result = await showDialog<bool>(
@@ -204,26 +202,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     isDense: true,
                   ),
                   autofocus: true,
-                ),
-                const SizedBox(height: 16),
-                const Text('选择图标', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: iconOptions.map((icon) => GestureDetector(
-                    onTap: () => setDialogState(() => selectedIcon = icon),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: selectedIcon == icon
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(icon, style: const TextStyle(fontSize: 20)),
-                    ),
-                  )).toList(),
                 ),
                 const SizedBox(height: 16),
                 const Text('选择颜色', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
@@ -271,7 +249,6 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         await _db.addCategory(Category(
           name: nameController.text.trim(),
-          icon: selectedIcon,
           color: selectedColor,
         ));
         _loadData();
@@ -369,7 +346,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     return AppBar(
-      title: const Text('Todo'),
+      title: const Text('TODO'),
       actions: [
         IconButton(
           icon: const Icon(Icons.settings_outlined),
@@ -431,7 +408,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ..._categories.map(
                   (cat) => GestureDetector(
                     onLongPress: () => _confirmDeleteCategory(cat),
-                    child: _buildCategoryChip(cat.id, cat.name, null, iconEmoji: cat.icon),
+                    child: _buildCategoryChip(cat.id, cat.name, null),
                   ),
                 ),
                 Padding(
@@ -464,7 +441,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCategoryChip(int? id, String label, IconData? icon, {String? iconEmoji}) {
+  Widget _buildCategoryChip(int? id, String label, IconData? icon) {
     final isSelected = _selectedCategoryId == id;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(

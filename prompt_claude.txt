@@ -1,0 +1,47 @@
+Read the requirements file at C:/Users/28351/Desktop/TodoApp/requirements.md and also the pre-existing file at C:/Users/28351/Desktop/TodoApp/lib/models/task.dart.
+
+Then create/overwrite the following files to build a complete Todo App:
+
+1. lib/models/category.dart — Category model with id, name, icon, color, taskCount. Include defaults() method returning 4 default categories (工作💼, 个人👤, 购物🛒, 学习📚).
+
+2. lib/database/database_helper.dart — SQLite database helper with:
+   - onCreate creates tasks and categories tables (see requirements.md for schema)
+   - Seed 4 default categories on first run
+   - CRUD: getAllTasks(), addTask(), updateTask(), deleteTask(), getCategories()
+   - Tasks sorted by: is_completed ASC, due_date ASC (nulls last), created_at DESC
+   - Use batch insert for default categories
+
+3. lib/screens/home_screen.dart — Main screen with:
+   - Top: AppBar with title "Todo" and a search icon button that toggles a search bar
+   - Category filter chips row (horizontal scrollable)
+   - Task list grouped by date (逾期/今天/明天/本周/以后)
+   - Each task: leading checkbox, title, category chip, due date label
+   - Overdue tasks highlighted in red
+   - Completed tasks shown with strikethrough, dimmed
+   - FAB to add new task
+   - Swipe to delete with red background
+   - Empty state with a nice illustration text
+   - Pull db data in initState, refresh after add/edit/delete
+
+4. lib/screens/task_form_screen.dart — Bottom sheet / full screen form for adding/editing tasks:
+   - Title text field (required)
+   - Description text field (multiline, optional)
+   - Category selector (horizontal chips)
+   - Due date picker (show date or "设置截止日期")
+   - Save button
+   - Delete button (only in edit mode)
+   - On save: return the new/updated Task back via Navigator.pop
+
+5. lib/main.dart — App entry with:
+   - MaterialApp with dark theme support
+   - Theme: clean white background, rounded corners, subtle shadows
+   - Dark theme: dark grey background
+   - Route to HomeScreen as home
+
+IMPORTANT:
+- Write COMPLETE, COMPILABLE code. No placeholders, no TODOs.
+- Use sqflite for database, intl for date formatting.
+- import 'package:todo_app/models/task.dart' and 'package:todo_app/models/category.dart' where needed.
+- DO NOT add any notification plugins or platform-specific code.
+- ALL navigation uses Navigator.push/pop (no named routes needed).
+- The app must run on Windows desktop via `flutter run -d windows`.

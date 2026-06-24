@@ -1,3 +1,5 @@
+import java.util.Properties
+
 allprojects {
     repositories {
         // 华为云镜像（已验证可用）

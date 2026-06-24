@@ -2,11 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
-
-/// 当前应用版本号（来自 pubspec.yaml）
-const String currentVersion = '1.0.0';
 
 /// 检查更新结果
 class UpdateInfo {
@@ -34,6 +31,9 @@ class UpdateService {
   static const String _keyLatestVersion = 'latest_version';
   static const String _keyDownloadUrl = 'download_url';
 
+  /// 已忽略的版本号（用户点了忽略后永久不再提示）
+  static const String _keyIgnoredVersion = 'ignored_update_version';
+
   /// 解析版本号字符串为可比较的整数数组
   static List<int> _parseVersion(String version) {
     return version
@@ -57,9 +57,14 @@ class UpdateService {
   }
 
   /// 从 GitHub API 检查最新 Release
-  static Future<UpdateInfo> checkForUpdate() async {
+  static Future<UpdateInfo> checkForUpdate(
+      {required String currentVersion}) async {
     try {
       debugPrint('[UpdateService] 正在检查更新...');
+
+      final prefs = await SharedPreferences.getInstance();
+      final ignoredVersion = prefs.getString(_keyIgnoredVersion) ?? '';
+
       final response = await http
           .get(Uri.parse(_apiUrl), headers: {
             'Accept': 'application/vnd.github.v3+json',
@@ -69,7 +74,7 @@ class UpdateService {
 
       if (response.statusCode != 200) {
         debugPrint('[UpdateService] GitHub API 返回 ${response.statusCode}');
-        return const UpdateInfo(hasUpdate: false, latestVersion: currentVersion);
+        return const UpdateInfo(hasUpdate: false, latestVersion: '');
       }
 
       final data = json.decode(response.body) as Map<String, dynamic>;
@@ -80,10 +85,14 @@ class UpdateService {
 
       debugPrint('[UpdateService] 最新版本: $latestVersion, 下载: $downloadUrl');
 
-      final hasUpdate = isNewerVersion(latestVersion, currentVersion);
-      debugPrint('[UpdateService] hasUpdate=$hasUpdate');
+      // 如果这个版本已经被忽略，就不提示
+      if (ignoredVersion == latestVersion) {
+        debugPrint('[UpdateService] 版本 v$latestVersion 已被忽略');
+        return const UpdateInfo(hasUpdate: false, latestVersion: '');
+      }
 
-      // 缓存检查结果
+      final hasUpdate = isNewerVersion(latestVersion, currentVersion);
+
       await _cacheUpdateInfo(hasUpdate, latestVersion, downloadUrl);
 
       return UpdateInfo(
@@ -94,7 +103,7 @@ class UpdateService {
       );
     } catch (e) {
       debugPrint('[UpdateService] 检查更新失败: $e');
-      return const UpdateInfo(hasUpdate: false, latestVersion: currentVersion);
+      return const UpdateInfo(hasUpdate: false, latestVersion: '');
     }
   }
 
@@ -107,39 +116,26 @@ class UpdateService {
         return asset['browser_download_url'] as String? ?? '';
       }
     }
-    // 如果没有 assets 则用 tag 拼接的下载链接
     final tag = release['tag_name'] as String? ?? 'v1.0.0';
     return 'https://github.com/$_repoOwner/$_repoName/releases/download/$tag/TODO.apk';
   }
 
-  /// 打开浏览器去下载页面
-  static Future<void> openDownloadPage() async {
-    await _cacheUpdateInfo(false, currentVersion, '');
-    final url = Uri.parse(
-        'https://github.com/$_repoOwner/$_repoName/releases/latest');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    }
+  /// 忽略当前版本（永久隐藏小红点）
+  static Future<void> ignoreVersion(String version) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyIgnoredVersion, version);
+    await _cacheUpdateInfo(false, '', '');
   }
 
-  /// 下载 APK 到本地（Android 专用）
-  static Future<String?> downloadApk() async {
+  /// 下载 APK 到应用文档目录，返回文件路径
+  static Future<String?> downloadApk({required String downloadUrl}) async {
     try {
-      final url = await _getCachedDownloadUrl();
-      if (url == null || url.isEmpty) {
-        // 先检查更新获取 URL
-        final info = await checkForUpdate();
-        if (info.downloadUrl.isEmpty) return null;
-      }
-      final downloadUrl = await _getCachedDownloadUrl() ?? '';
-      if (downloadUrl.isEmpty) return null;
-
       debugPrint('[UpdateService] 开始下载: $downloadUrl');
-
-      // 下载到应用缓存目录
-      final dir = Directory.systemTemp;
+      final dir = await getApplicationDocumentsDirectory();
       final file = File('${dir.path}/TODO_update.apk');
-
+      if (await file.exists()) {
+        await file.delete();
+      }
       final response = await http.get(Uri.parse(downloadUrl));
       if (response.statusCode == 200) {
         await file.writeAsBytes(response.bodyBytes);
@@ -173,12 +169,11 @@ class UpdateService {
     return prefs.getString(_keyLatestVersion);
   }
 
-  static Future<String?> _getCachedDownloadUrl() async {
+  static Future<String?> getCachedDownloadUrl() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyDownloadUrl);
   }
 
-  /// 获取上次检查时间（毫秒时间戳）
   static Future<int> lastCheckTime() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(_keyLastCheck) ?? 0;

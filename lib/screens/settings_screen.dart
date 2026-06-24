@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../database/database_helper.dart';
 import '../models/settings_model.dart';
 import '../services/update_service.dart';
@@ -23,6 +24,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _statsLoading = true;
   bool _updateChecking = false;
   String? _updateStatus;
+  String _currentVersion = '1.0.0';
 
   @override
   void initState() {
@@ -30,6 +32,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _settings = widget.settings;
     _loadStats();
     _loadUpdateStatus();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() => _currentVersion = '${info.version}');
+    } catch (_) {}
   }
 
   Future<void> _loadStats() async {
@@ -70,7 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _updateStatus = null;
     });
 
-    final info = await UpdateService.checkForUpdate();
+    final info = await UpdateService.checkForUpdate(currentVersion: _currentVersion);
 
     if (!mounted) return;
     setState(() {
@@ -89,9 +100,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ 已是最新版 v1.0.0'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text('✅ 已是最新版 v$_currentVersion'),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -112,7 +123,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('当前版本：v$currentVersion',
+            Text('当前版本：v$_currentVersion',
                 style: TextStyle(color: Colors.grey[600])),
             Text('最新版本：v${info.latestVersion}',
                 style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -136,16 +147,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Text('稍后'),
           ),
           FilledButton.icon(
-            icon: const Icon(Icons.open_in_browser, size: 18),
-            label: const Text('去下载'),
+            icon: const Icon(Icons.download, size: 18),
+            label: const Text('下载并安装'),
             onPressed: () {
               Navigator.pop(ctx);
-              UpdateService.openDownloadPage();
+              _downloadAndInstall(info.downloadUrl, info.latestVersion);
             },
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _downloadAndInstall(String downloadUrl, String latestVersion) async {
+    if (downloadUrl.isEmpty) return;
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16, height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('正在下载更新...'),
+          ],
+        ),
+        duration: Duration(seconds: 30),
+      ),
+    );
+    final apkPath = await UpdateService.downloadApk(downloadUrl: downloadUrl);
+    if (!mounted) return;
+    if (apkPath != null) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('更新包已下载到: $apkPath\n请在文件管理器中打开安装'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('下载失败，请检查网络后重试')),
+      );
+    }
   }
 
   @override
@@ -411,7 +458,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ListTile(
                   leading: const Icon(Icons.tag),
                   title: const Text('版本号'),
-                  subtitle: Text('v$currentVersion'),
+                  subtitle: Text('v$_currentVersion'),
                 ),
                 const Divider(height: 1, indent: 56, endIndent: 16),
 
